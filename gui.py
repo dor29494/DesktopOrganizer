@@ -110,7 +110,7 @@ class SetupDialog(tk.Toplevel):
     def __init__(self, parent, on_complete):
         super().__init__(parent)
         self.title("\U0001F511 AI Setup")
-        self.geometry("460x340")
+        self.geometry("460x420")
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -619,14 +619,14 @@ def main():
     if config is None:
         # First-run: show setup dialog in root
         root.title("\U0001F511 AI Setup")
-        root.geometry("460x340")
+        root.geometry("460x420")
         root.resizable(False, False)
         root.configure(bg=BG)
 
         root.update_idletasks()
         sw = root.winfo_screenwidth()
         sh = root.winfo_screenheight()
-        root.geometry(f"460x340+{(sw - 460) // 2}+{(sh - 340) // 2}")
+        root.geometry(f"460x420+{(sw - 460) // 2}+{(sh - 340) // 2}")
 
         _build_setup_in_root(root)
     else:
@@ -692,12 +692,7 @@ def _build_setup_in_root(root):
     )
     key_entry.pack(fill="x", ipady=6, pady=(2, 20))
 
-    def on_save():
-        key = key_entry.get().strip()
-        if not key:
-            messagebox.showwarning("Missing Key", "Please enter your API key.")
-            return
-        save_config(provider_var.get(), key, model_var.get())
+    def _launch_main(root):
         for widget in root.winfo_children():
             widget.destroy()
         root.geometry("620x680")
@@ -707,7 +702,27 @@ def _build_setup_in_root(root):
         root.geometry(f"620x680+{(sw - 620) // 2}+{(sh - 680) // 2}")
         DesktopOrganizerApp(root)
 
+    def on_save():
+        key = key_entry.get().strip()
+        if not key:
+            messagebox.showwarning("Missing Key", "Please enter your API key.")
+            return
+        save_config(provider_var.get(), key, model_var.get())
+        _launch_main(root)
+
+    def on_demo():
+        save_config("demo", "", "gemini-2.0-flash")
+        _launch_main(root)
+
     styled_button(form, "\u2705 Save & Start", on_save, GREEN, GREEN_HOVER).pack(fill="x")
+
+    # Separator
+    tk.Label(form, text="- or -", bg=BG, fg=FG_DIM, font=("Segoe UI", 9)).pack(pady=(8, 4))
+
+    # Demo mode button
+    styled_button(
+        form, "\U0001F680 Try without API key (demo)", on_demo, "#5a6acf", "#6b7ce0"
+    ).pack(fill="x")
 
 
 if __name__ == "__main__":

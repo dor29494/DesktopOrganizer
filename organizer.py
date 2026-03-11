@@ -224,12 +224,48 @@ def _call_gemini(system_prompt: str, user_message: str, config: dict) -> str:
     return response.text
 
 
+# ── Demo mode (proxy server) ─────────────────────────────────────────────────
+DEMO_SERVER_URL = os.environ.get(
+    "DEMO_SERVER_URL", "https://desktop-organizer-api.onrender.com"
+)
+
+
+def _call_demo(system_prompt: str, user_message: str) -> dict:
+    """Call the proxy server for demo mode (no API key needed)."""
+    import urllib.request
+    import urllib.error
+
+    payload = json.dumps({
+        "system_prompt": system_prompt,
+        "user_message": user_message,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"{DEMO_SERVER_URL}/api/organize",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        try:
+            msg = json.loads(body).get("error", body)
+        except Exception:
+            msg = body
+        raise RuntimeError(msg)
+
+
 def call_ai(system_prompt: str, user_message: str, config: dict | None = None) -> dict:
     """Send a prompt to the configured AI provider and parse the JSON response."""
     if config is None:
         config = load_config()
-    if config is None:
-        raise RuntimeError("No AI provider configured. Please run setup first.")
+
+    # Demo mode — no config needed, use proxy server
+    if config is None or config.get("provider") == "demo":
+        return _call_demo(system_prompt, user_message)
 
     provider = config["provider"]
     if provider == "claude":
