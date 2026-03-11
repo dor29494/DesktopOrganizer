@@ -226,7 +226,7 @@ def _call_gemini(system_prompt: str, user_message: str, config: dict) -> str:
 
 # ── Demo mode (proxy server) ─────────────────────────────────────────────────
 DEMO_SERVER_URL = os.environ.get(
-    "DEMO_SERVER_URL", "https://desktop-organizer-api.onrender.com"
+    "DEMO_SERVER_URL", "https://desktoporganizer.onrender.com"
 )
 
 
