@@ -14,6 +14,7 @@ from organizer import (
     load_history,
     load_config,
     save_config,
+    get_last_demo_meta,
     PROVIDERS,
 )
 
@@ -59,6 +60,8 @@ STRINGS = {
         "next": "\u2795 Next",
         "done_btn": "\u2705 Done",
         "cancel": "\u274C Cancel",
+        "fallback_notice": "\u26A0\uFE0F Claude limit reached \u2014 using free Gemini (results may vary)\n\n",
+        "powered_by": "Powered by {provider} \u2022 {remaining} Claude requests left today",
     },
     "he": {
         "title": "\U0001F5C2\uFE0F \u05DE\u05E1\u05D3\u05E8 \u05E9\u05D5\u05DC\u05D7\u05DF \u05D4\u05E2\u05D1\u05D5\u05D3\u05D4",
@@ -85,6 +88,8 @@ STRINGS = {
         "next": "\u2795 \u05D4\u05D1\u05D0",
         "done_btn": "\u2705 \u05E1\u05D9\u05D5\u05DD",
         "cancel": "\u274C \u05D1\u05D9\u05D8\u05D5\u05DC",
+        "fallback_notice": "\u26A0\uFE0F \u05DE\u05DB\u05E1\u05EA Claude \u05D4\u05D2\u05D9\u05E2\u05D4 \u05DC\u05DE\u05D2\u05D1\u05DC\u05D4 \u2014 \u05DE\u05E9\u05EA\u05DE\u05E9 \u05D1-Gemini \u05D7\u05D9\u05E0\u05DE\u05D9 (\u05D9\u05D9\u05EA\u05DB\u05E0\u05D5 \u05E9\u05D2\u05D9\u05D0\u05D5\u05EA)\n\n",
+        "powered_by": "\u05DE\u05D5\u05E4\u05E2\u05DC \u05E2\u05DC \u05D9\u05D3\u05D9 {provider} \u2022 \u05E0\u05D5\u05EA\u05E8\u05D5 {remaining} \u05D1\u05E7\u05E9\u05D5\u05EA Claude \u05D4\u05D9\u05D5\u05DD",
     },
 }
 
@@ -551,10 +556,23 @@ class DesktopOrganizerApp:
             warning_text = "\u26A0\uFE0F WARNINGS:\n" + "\n".join(f"   \u2022 {w}" for w in warnings) + "\n\n"
             text = warning_text + text
 
+        # Show fallback notice if demo mode used Gemini instead of Claude
+        meta = get_last_demo_meta()
+        if meta and meta.get("fallback"):
+            text = self.t("fallback_notice") + text
+
         self.current_plan = plan
         self._set_results(text)
         self.btn_execute.config(state="normal")
-        self.status_var.set(self.t("plan_ready"))
+
+        # Show provider info in status bar for demo mode
+        if meta:
+            self.status_var.set(self.t("powered_by").format(
+                provider=meta.get("provider", "?").capitalize(),
+                remaining=meta.get("claude_remaining", "?"),
+            ))
+        else:
+            self.status_var.set(self.t("plan_ready"))
 
     def _on_plan_error(self, error: str):
         self._set_buttons(analyzing=False)

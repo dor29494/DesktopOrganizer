@@ -231,9 +231,13 @@ DEMO_SERVER_URL = os.environ.get(
 
 
 def _call_demo(system_prompt: str, user_message: str) -> dict:
-    """Call the proxy server for demo mode (no API key needed)."""
+    """Call the proxy server for demo mode (no API key needed).
+    Returns the plan dict. Sets _last_demo_meta with provider info."""
     import urllib.request
     import urllib.error
+
+    global _last_demo_meta
+    _last_demo_meta = None
 
     payload = json.dumps({
         "system_prompt": system_prompt,
@@ -248,7 +252,9 @@ def _call_demo(system_prompt: str, user_message: str) -> dict:
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            data = json.loads(resp.read().decode("utf-8"))
+            _last_demo_meta = data.pop("_meta", None)
+            return data
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         try:
@@ -256,6 +262,14 @@ def _call_demo(system_prompt: str, user_message: str) -> dict:
         except Exception:
             msg = body
         raise RuntimeError(msg)
+
+
+_last_demo_meta: dict | None = None
+
+
+def get_last_demo_meta() -> dict | None:
+    """Return metadata from the last demo call (provider, fallback, remaining)."""
+    return _last_demo_meta
 
 
 def call_ai(system_prompt: str, user_message: str, config: dict | None = None) -> dict:
