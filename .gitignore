@@ -1,0 +1,9 @@
+__pycache__/
+build/
+dist/
+*.spec
+*.pyc
+config.json
+move_history.json
+organization_plan.json
+.env
