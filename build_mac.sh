@@ -30,8 +30,10 @@ fi
 cd DesktopOrganizer
 git pull origin main
 
-# 3. Install dependencies
-pip3 install pyinstaller anthropic openai google-genai
+# 3. Create virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install pyinstaller anthropic openai google-genai
 
 # 4. Generate embedded keys
 python3 << PYEOF
