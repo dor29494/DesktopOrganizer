@@ -61,5 +61,21 @@ echo ""
 echo "============================================"
 echo "  BUILD COMPLETE!"
 echo "  DesktopOrganizer-Mac.zip is on your Desktop"
-echo "  Please send this file to Dor"
 echo "============================================"
+echo ""
+
+# 7. Upload to GitHub Release
+if command -v gh &> /dev/null; then
+    echo "GitHub CLI found. Uploading to release..."
+    gh auth status &> /dev/null || gh auth login
+    gh release upload v1.0.0 DesktopOrganizer-Mac.zip --repo dor29494/DesktopOrganizer --clobber
+    echo ""
+    echo "Uploaded! Check: https://github.com/dor29494/DesktopOrganizer/releases/tag/v1.0.0"
+else
+    echo "To upload to GitHub, install gh CLI first:"
+    echo "  brew install gh"
+    echo "  gh auth login"
+    echo "  gh release upload v1.0.0 ~/Desktop/DesktopOrganizer-Mac.zip --repo dor29494/DesktopOrganizer --clobber"
+    echo ""
+    echo "Or send DesktopOrganizer-Mac.zip from your Desktop to Dor."
+fi
