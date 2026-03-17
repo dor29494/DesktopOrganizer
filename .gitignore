@@ -7,3 +7,5 @@ config.json
 move_history.json
 organization_plan.json
 .env
+embedded_keys.py
+demo_usage.json

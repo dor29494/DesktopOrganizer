@@ -54,6 +54,7 @@ else:
 
 HISTORY_PATH = os.path.join(_BASE_DIR, "move_history.json")
 CONFIG_PATH = os.path.join(_BASE_DIR, "config.json")
+DEMO_COUNTER_PATH = os.path.join(_BASE_DIR, "demo_usage.json")
 
 # ── Provider / model options ─────────────────────────────────────────────────
 PROVIDERS = {
@@ -224,47 +225,82 @@ def _call_gemini(system_prompt: str, user_message: str, config: dict) -> str:
     return response.text
 
 
-# ── Demo mode (proxy server) ─────────────────────────────────────────────────
-DEMO_SERVER_URL = os.environ.get(
-    "DEMO_SERVER_URL", "https://desktoporganizer.onrender.com"
-)
+# ── Demo mode (embedded keys, no server) ─────────────────────────────────────
+DEMO_DAILY_LIMIT = 25
+
+_last_demo_meta: dict | None = None
+
+
+def _deobfuscate(encoded: str) -> str:
+    """Reverse the obfuscation from generate_keys.py."""
+    import base64
+    return base64.b64decode(encoded).decode()[::-1]
+
+
+def _get_embedded_keys() -> tuple[str, str]:
+    """Load obfuscated keys from embedded_keys.py (bundled in EXE)."""
+    try:
+        from embedded_keys import _C, _G
+        return _deobfuscate(_C), _deobfuscate(_G)
+    except ImportError:
+        raise RuntimeError("Demo mode not available — embedded keys not found.")
+
+
+def _load_demo_counter() -> dict:
+    """Load daily usage counter. Resets each day."""
+    from datetime import date
+    today = date.today().isoformat()
+    if os.path.isfile(DEMO_COUNTER_PATH):
+        with open(DEMO_COUNTER_PATH, "r") as f:
+            data = json.load(f)
+        if data.get("date") == today:
+            return data
+    return {"date": today, "claude_count": 0}
+
+
+def _save_demo_counter(data: dict):
+    with open(DEMO_COUNTER_PATH, "w") as f:
+        json.dump(data, f)
 
 
 def _call_demo(system_prompt: str, user_message: str) -> dict:
-    """Call the proxy server for demo mode (no API key needed).
-    Returns the plan dict. Sets _last_demo_meta with provider info."""
-    import urllib.request
-    import urllib.error
-
+    """Demo mode: use Claude first (25/day), then Gemini fallback."""
     global _last_demo_meta
-    _last_demo_meta = None
 
-    payload = json.dumps({
-        "system_prompt": system_prompt,
-        "user_message": user_message,
-    }).encode("utf-8")
+    claude_key, gemini_key = _get_embedded_keys()
+    counter = _load_demo_counter()
+    fallback = False
 
-    req = urllib.request.Request(
-        f"{DEMO_SERVER_URL}/api/organize",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            _last_demo_meta = data.pop("_meta", None)
-            return data
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
+    if counter["claude_count"] < DEMO_DAILY_LIMIT:
+        # Try Claude first
         try:
-            msg = json.loads(body).get("error", body)
+            config = {"api_key": claude_key, "model": "claude-sonnet-4-5-20250929"}
+            text = _call_claude(system_prompt, user_message, config)
+            counter["claude_count"] += 1
+            _save_demo_counter(counter)
+            remaining = DEMO_DAILY_LIMIT - counter["claude_count"]
+            _last_demo_meta = {
+                "provider": "claude",
+                "fallback": False,
+                "claude_remaining": remaining,
+            }
+            return _parse_json_response(text)
         except Exception:
-            msg = body
-        raise RuntimeError(msg)
+            # Claude failed — fall through to Gemini
+            fallback = True
+    else:
+        fallback = True
 
-
-_last_demo_meta: dict | None = None
+    # Gemini fallback
+    config = {"api_key": gemini_key, "model": "gemini-2.0-flash"}
+    text = _call_gemini(system_prompt, user_message, config)
+    remaining = DEMO_DAILY_LIMIT - counter["claude_count"]
+    _last_demo_meta = {
+        "provider": "gemini",
+        "fallback": fallback,
+        "claude_remaining": remaining,
+    }
+    return _parse_json_response(text)
 
 
 def get_last_demo_meta() -> dict | None:
